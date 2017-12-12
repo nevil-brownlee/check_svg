@@ -58,10 +58,10 @@ elements = {
     'tbreak':         (
                            'id', 'role'),
     'solidColor':     (    'id', 'role', 'fill'),
-    'linearGradient': ('gradientUnits', 'x1', 'y1', 'x2', 'y2',
-                           'id', 'role', 'fill'),
-    'radialGradient': ('gradientUnits', 'cx', 'cy', 'r',
-                           'id', 'role', 'fill'),
+    #'linearGradient': ('gradientUnits', 'x1', 'y1', 'x2', 'y2',
+    #                       'id', 'role', 'fill'),
+    #'radialGradient': ('gradientUnits', 'cx', 'cy', 'r',
+    #                       'id', 'role', 'fill'),
     'stop':           (    'id', 'role', 'fill'),  # Gradients
     
     'path':           ('d', 'pathLength', 'stroke-miterlimit',
