@@ -131,10 +131,10 @@ properties = {
     } 
 
 basic_types = {  # Lists of allowed values
-    '<color>':   ('black', 'white', '#000000', '#ffffff', '#FFFFFF'),
+    '<color>':   ('black', '#ffffff', '#FFFFFF', 'white', '#000000'),
                   # 'grey', 'darkgrey', 'dimgrey', 'lightgrey',
 	          # 'gray', 'darkgray', 'dimgray', 'lightgray',
-                  # '#808080', '#A9A9A9', '#696969', '#D3D3D3', ,
+                  # '#808080', '#A9A9A9', '#696969', '#D3D3D3'),
     '<paint>':   ('<color>', 'none', 'currentColor', 'inherit'),
     '<integer>': ('+')
     }
