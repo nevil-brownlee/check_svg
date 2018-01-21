@@ -1,26 +1,16 @@
-#!/usr/bin/env python
-
-# Thu, 24 Sep 15 (NZST)
-# Sat,  7 Jun 14 (NZST)
-#
-# check-svg.py:  ./check-svg.py -n diagram.svg
-#                ./check-svy.py --help  # to see options info
+# 1305,  9 Jan 2018 (NZDT)
 #
 # Nevil Brownlee, U Auckland
+#   From a simple original version by Joe Hildebrand
 
-# From a simple original version by Joe Hildebrand
-
-#'''  # ElementTree doesn't have nsmap
+# ElementTree doesn't have nsmap
 try:
     import xml.etree.cElementTree as ET
 except ImportError:
     import xml.etree.ElementTree as ET
-#'''
 #from lxml import etree as ET
 
-import getopt
-import sys
-import re
+import getopt, sys, re
 
 import word_properties as wp
 
@@ -29,7 +19,7 @@ warn_nbr = 0
 current_file = None
 
 verbose = False   # set by -v
-warn_limit = 150   # set by -w nnn
+warn_limit = 40   # set by -w nnn
 new_file = False  # set by -n
 trace = False     # set by -t
 
@@ -40,10 +30,10 @@ def help_msg(msg):
     if msg:
         suffix = ": %s" % msg
     print("Nevil's SVG checker%s" % suffix)
-    print("\n  ./check-svg.py [options] input-svg-file(s)\n")
+    print("\n  ./check.py [options] input-svg-file(s)\n")
     print("options:")
-    print("  -n      write .new.svg file, stripping out anything\n             not allowed in SVG 1.2 RFC")
-    print("  -w nnn  stop after nn warning messages\n")
+    print("  -n     write .new.svg file, stripping out anything\n           not allowed in SVG 1.2 RFC")
+    print("  -w nn  stop after nn warning messages\n")
     exit()
 
 try:
@@ -72,77 +62,97 @@ def warn(msg, depth):
     warn_nbr += 1
     print("%5d %s%s" % (warn_nbr, ' '*(depth*indent), msg))
     if warn_nbr == warn_limit:
-        print("warning limit (%d) reached for %s" % (
+        print("warning limit (%d) reached for %s <<" % (
             warn_nbr, current_file))
+        exit()
 
-def check_some_props(attr, val, depth):  # For [style] properties
-    vals = wp.properties[attr]
-    props_to_check = wp.property_lists[vals]
-    new_val = '';  ok = True
-    old_props = val.rstrip(';').split(';')
-    #print("old_props = %s" % old_props)
-    for prop in old_props:
-        #print("prop = %s" %  prop)
-        p, v = prop.split(':')
-        v = v.strip()  # May have leading blank
-        if p in props_to_check:
-            allowed_vals = wp.properties[p]
-            #print("$$$ p=%s, allowed_vals=%s." % (p, allowed_vals))
-            allowed = value_ok(v, p)
-            if not allowed:
-                warn("??? %s attribute: value '%s' not valid for '%s'" % (
-                    attr,v, p), depth)
-                ok = False
-        else:
-            new_val += ';' + prop
-    return (ok, new_val)
+#def check_some_props(attr, val, depth):  # For [style] properties
+# Not needed Jan 2018 versionq
+#    props_to_check = wp.property_lists[attr]
+#    new_val = '';  ok = True
+#    style_props = val.rstrip(';').split(';')
+#    print("style_props = %s" % style_props)
+#    for prop in style_props:
+#        print("prop = %s" %  prop)
+#        p, v = prop.split(':')
+#        v = v.strip()  # May have leading blank
+#        if p in props_to_check:
+#            #allowed_vals = wp.properties[p]
+#            #print("$csp p=%s, allowed_vals=%s." % (p, allowed_vals))
+#            allowed = value_ok(v, p, depth)
+#            if not allowed:
+#                warn("['%s' attribute: value %s not valid for '%s']" % (
+#                    attr,v, p), depth)
+#                ok = False
+#        else:
+#            new_val += ';' + prop
+#    return (ok, new_val)
 
-def value_ok(v, obj):  # Is v OK for attrib/property obj?
-    # print("value_ok(%s, %s)" % (v, obj))
-    if obj not in wp.properties:
-        if obj not in wp.basic_types:
-            return (False, None)
-        values = wp.basic_types[obj]
-        if values == '+':  # Integer
-            n = re.match(r'\d+$', v)
-            return (n, None)
-    else:
+def value_ok(v, obj, depth):  # Is value v OK for attrib/property obj?
+    # Returns  (T/F/int, val that matched)
+    #print("V++ value_ok(%s, %s, %s) type(v) = %s, type(obj)=%s" % (
+    #    v, obj, depth, type(v), type(obj)))
+    if obj in wp.properties:
         values = wp.properties[obj]
-    ##if isinstance(values, basestring):  # str) in python 3
-    if isinstance(values, str):  # str) in python 3
-        if values[0] == '<' or values[0] == '+':
-            print(". . . values = >%s<" % values)
-            return value_ok(False, None)
-    else:
-        ## print("--- values=") ;  print values
-        for val in values:
-            #print("- - - val=%s, v=%s." % (val, v))
-            if val[0] == '<':
-              return value_ok(v, val)
-            if v == val:
-                return (True, None)
-            elif val == '#':  # RGB value
-                lv = v.lower()
-                if lv[0] == '#':  #rrggbb  hex
-                    if len(lv) == 7:
-                        return (lv[3:5] == lv[1:3] and lv[5:7] == lv[1:3], None)
-                    if len(lv) == 4:
-                        return (lv[2] == lv[1] and lv[3] == lv[1], None)
-                    return (False, None)
-                elif lv.find('rgb') == 0:  # integers
-                    rgb = re.search(r'\((\d+),(\d+),(\d+)\)', lv)
-                    if rgb:
-                        return ((rgb.group(2) == rgb.group(1) and
-                            rgb.group(3) == rgb.group(1)), None)
-                    return (False, None)
-        v = v.lower()
-        if obj == 'font-family':
-            if v.find('sans') >= 0:
-                return (False, 'sans-serif')
-        if obj == '<color>':
-            return (False, wp.color_default)
+    elif obj in wp.basic_types:
+        values = wp.basic_types[obj]
+    elif isinstance(obj, str):
+        return (v == obj, v)
+    else:  # Unknown attribute
         return (False, None)
 
+    #print("2++ values = %s <%s>" % ((values,), type(values)))
+    if len(values) == 0:  # Empty values tuple, can't check
+        return (True, None)
+    elif isinstance(values, str):  # values is a string
+        if values[0] == '<':
+            #print("4++ values=%s, v=%s" % (values, v))
+            ok_v, matched_v = value_ok(v, values, depth)
+            #print("5++ ok_v = %s, matched_v = %s" % (ok_v, matched_v))
+            return (ok_v, matched_v)
+        if  values[0] == '+g':  # Any integer or real
+            n = re.match(r'\d+\.\d+$', v)
+            rv = None
+            if n:
+                rv = n.group()
+            return (True, rv)
+        if  values[0] == '+h':  # [100,900] in hundreds
+            n = re.match(r'\d00$', v)
+            rv = None
+            if n:
+                rv = n.group()
+            return (True, rv)
+        if values == v:
+            print("4++ values=%s, v=%s." % (values, v))
+            return (True, values)
+        if values[0] == "[":
+            some_ok, matched_val = check_some_props(values, v, depth)
+            return (some_ok, matched_val)
+        #if values == '#':  # RGB value
+        #    lv = v.lower()
+        #    if lv[0] == '#':  #rrggbb  hex
+        #        if len(lv) == 7:
+        #            return (lv[3:5] == lv[1:3] and lv[5:7] == lv[1:3], None)
+        #        if len(lv) == 4:
+        #            return (lv[2] == lv[1] and lv[3] == lv[1], None)
+        #        return (False, None)
+        #    elif lv.find('rgb') == 0:  # integers
+        #        rgb = re.search(r'\((\d+),(\d+),(\d+)\)', lv)
+        #        if rgb:
+        #            return ((rgb.group(2) == rgb.group(1) and
+        #                rgb.group(3) == rgb.group(1)), None)
+        #        return (False, None)
+
+    #print("6++ values tuple = %s" % (values,))
+    for val in values:  # values is a tuple
+        ok_v, matched_v = value_ok(v, val, depth)
+        #print("7++ ok_v = %s, matched_v = %s" % (ok_v, matched_v))
+        if ok_v:
+            return (True, matched_v)
+
+    #print("8++ values=%s, (%s) <<<" % ((values,), type(values)))
+    return (True, None)  # Can't check it, so it's OK
+        
 def strip_prefix(element):  # Remove {namespace} prefix
     global bad_namespaces
     ns_ok = True
@@ -154,85 +164,95 @@ def strip_prefix(element):  # Remove {namespace} prefix
                 if not ns in bad_namespaces:
                     bad_namespaces.append(ns)
                 ns_ok = False
+            #print("@@ element=%s" % element[rbp+1:])
             element = element[rbp+1:]
-    return element, ns_ok  # return ns = False if it's not allowed
+    return element, ns_ok  # return False if not in a known namespace
 
 def check(el, depth):
     global new_file, trace
-    #print("tag=%s<  text=%s<" % (el.tag, el.text))
-    #print("tail=%s<  attrib=%s<" % (el.tail,el.attrib))
     if trace:
-        print("%s tag = %s" % (' ' * (depth*indent), el.tag))
+        print("T1: %s tag = %s  (depth=%d <%s>)" % (
+            ' '*(depth*indent), el.tag, depth, type(depth)))
     if warn_nbr >= warn_limit:
-        return
+        return False
     element, ns_ok = strip_prefix(el.tag)  # name of element
-    #print("element=%s, ns=%s" % (element, ns))
-        # ElementTree prefixes elements with default namespace in braces
+    # ElementTree prefixes elements with default namespace in braces
+    #print("element=%s, ns_ok=%s" % (element, ns_ok))
     if not ns_ok:
         return False  # Remove this el
     if verbose:
-        print("%s element % s: %s" % (' ' * (depth*indent), element, el.attrib))
-    if element not in wp.elements:
-        warn("... element '%s' not allowed" % element, depth )
-        return False  # Remove this el
-    else:
-        attribs = wp.elements[element]  # Allowed attributes for element
-        print(">>> element %s: %s" % (element, el.attrib))
-        attribs_to_remove = []  # Can't remove them inside the iteration!
-        for attrib, val in el.attrib.items():
-            attr, ns_ok = strip_prefix(attrib)
-            if trace:
-                print("%s attr %s = %s (ns_ok = %s)" % (
-                    ' ' * (depth*indent), attr, val, ns_ok))
-            if not ns_ok or ((attr not in attribs) and (attr not in wp.properties)):
-                warn("--- element '%s' does not allow attribute '%s'" % (
-                    element, attrib), depth)
-                attribs_to_remove.append(attrib)
-            elif (attr not in attribs):  # Not in elements{}, can't test value
-                vals = wp.properties[attr]
-                ## print("vals = ", ; print vals, ; print "<<<<<")
-                if vals and vals[0] == '[':
-                    ok, new_val = check_some_props(attr, val, depth)
-                    if new_file and not ok:
-                        el.attrib[attr] = new_val[1:]
-                else:
-                    ok, new_val = value_ok(val, attr)
-                    if vals and not ok:
-                        warn("=== %s not allowed as value for %s" % (val, attr),
-                             depth)
-                        if new_file:
-                            if new_val != None:
-                                el.attrib[attrib] = new_val
-                            else:
-                                attribs_to_remove.append(attrib)
-        for attrib in attribs_to_remove:
-            el.attrib[attrib]
-    els_to_rm = []  # Can't remove them inside the iteration!
-    for child in el:
+        print("%selement % s: %s" % (' '*(depth*indent), element, el.attrib))
+
+    attrs_to_remove = []  # Can't remove them inside the iteration!
+    attrs_to_set = []
+    for attrib, val in el.attrib.items():
+        # (attrib,val) tuples for each attribute
+        attr, ns_ok = strip_prefix(attrib)
         if trace:
-            print("%schild, tag = %s" % (' ' * (depth*indent), child.tag))
-        if not check(child, depth+1):
-            els_to_rm.append(child)
-    if new_file and len(els_to_rm) != 0:
-        for child in els_to_rm:
-            el.remove(child)
+            print("%s attrib %s = %s (ns_ok = %s), val = %s" % (
+                ' ' * (depth*(indent+1)), attr, val, ns_ok, val))
+        if attrib in wp.elements:  # Is it an element?
+            warn("element '%s' not allowed as attribute" % element, depth )
+            attrs_to_remove.append(attrib)
+        else:
+            atr_ok, matched_val = value_ok(val, attr, depth)
+            #print("$1-- val=%s, attr=%s -> atr_ok=%s, matched_val=%s" % (
+            #    val, attr, atr_ok, matched_val))
+            if not atr_ok:
+                warn("value '%s' not allowed for attribute %s" % (val, attrib),
+                     depth)
+                attrs_to_remove.append(attrib)
+            if matched_val != val and attrib == 'font-family':
+                # Special case!
+                if val.find('sans') >= 0:
+                    attrs_to_set.append( (attrib, 'sans-serif') )
+                if val.find('serif') >= 0:
+                    attrs_to_set.append( (attrib, 'serif') )
+        #print("%s is %s, matched_val %s" % (attr, atr_ok, matched_val))
+    for atr in attrs_to_remove:
+        el.attrib.pop(atr)
+    for ats in attrs_to_set:
+        el.set(ats[0], ats[1])
+
+    children_to_remove = []
+    for child in el:  # Children of this svg element
+        ch_el, el_ok = strip_prefix(child.tag)  # name of element
+        #print("$$ el=%s, child=%s, el_ok=%s, child.tag=%s, %s" % (
+        #    el, ch_el, el_ok, child.tag, type(child)))
+        # Check for not-allowed elements
+        if ch_el in wp.element_children:
+            allowed_children = wp.element_children[element]
+        else:  # not in wp.element_children
+            allowed_children = []
+        if not ch_el in allowed_children:
+            msg = "'%s' may not appear in a '%s'" % (ch_el, element)
+            warn(msg, depth)
+            children_to_remove.append(child)
+        else:
+            ch_ok = check(child, depth+1)  # OK, check this child
+            #print("@2@ check(depth %d) returned %s" % (depth, ch_ok))
+
+    #print("@3@ children_to_remove = %s" % children_to_remove)
+    for child in children_to_remove:
+        el.remove(child)
     return True  # OK
 
 def remove_namespace(doc, namespace):
+    return True  # OKace):
     # From  http://stackoverflow.com/questions/18159221/
     #   remove-namespace-and-prefix-from-xml-in-python-using-lxml
     ns = u'{%s}' % namespace
     nsl = len(ns)
     for elem in doc.getiterator():
         if elem.tag.startswith(ns):
-            print("elem.tag before=%s," % elem.tag)
+            print("elem.tag before= %s," % elem.tag)
             elem.tag = elem.tag[nsl:]
             print("after=%s." % elem.tag)
 
-def checkFile(fn):
+def checkFile(fn, options):
     global current_file, warn_nbr, root
     current_file = fn
-    print("Starting %s" % current_file)
+    print("Starting %s%s" % (fn, options))
     tree = ET.parse(fn)
     root = tree.getroot()
     #print("root.attrib=%s, test -> %d" % (root.attrib, "xmlns" in root.attrib))
@@ -244,7 +264,6 @@ def checkFile(fn):
     ET.register_namespace("", "http://www.w3.org/2000/svg")
         # Stops tree.write() from prefixing above with "ns0"
     check(root, 0)
-    print("bad_namespaces = %s" % bad_namespaces)
     if trace and len(bad_namespaces) != 0:
         print("bad_namespaces = %s" % bad_namespaces)
     if new_file:
@@ -260,8 +279,15 @@ def checkFile(fn):
             print("writing to %s" % (new_fn))
             tree.write(new_fn)
 
+    return warn_nbr
+
 if __name__ == "__main__":
+    options = ''
+    if len(sys.argv) > 2:
+        options = "  %s" % ' '.join(sys.argv[1:-1])
     for arg in rem_args:
         warn_nbr = 0
-        checkFile(arg)
-        print("%d warnings for %s\n" % (warn_nbr, arg))
+        n_warnings = checkFile(arg, options)
+        print("%d warnings for %s" % (n_warnings, arg))
+        if len(rem_args) == 1:
+            exit(n_warnings)
